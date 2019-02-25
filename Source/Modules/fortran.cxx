@@ -2491,12 +2491,17 @@ int FORTRAN::constantWrapper(Node *n) {
     if (!cwrap_code)
       return SWIG_NOWRAP;
 
-    if (Strstr(cwrap_code, "\n")) {
+    int num_semicolons = 0;
+    for (const char *c = Char(cwrap_code); *c != '\0'; ++c) {
+      if (*c == ';')
+        ++num_semicolons;
+    }
+    if (num_semicolons != 1) {
       // There's a newline in the output code, indicating it's
       // nontrivial.
       Swig_warning(WARN_LANG_NATIVE_UNIMPL, input_file, line_number,
-                   "The 'out' typemap for '%s' is too complex to wrap as a %%constant variable. This will be implemented later\n",
-                   symname);
+                   "The 'out' typemap for '%s' must have only a single statement to wrap as a constant, but it has %d.\n",
+                   symname, num_semicolons);
 
       return SWIG_NOWRAP;
     }
