@@ -203,6 +203,14 @@ String *Swig_new_subdirectory(String *basedirectory, String *subdirectory) {
 }
 
 /* -----------------------------------------------------------------------------
+ * simplify_relative_dirs()
+ *
+ * Replace ./ with /, and DIR/../ with /
+ * ----------------------------------------------------------------------------- */
+static void simplify_relative_dirs(String *filename) {
+}
+
+/* -----------------------------------------------------------------------------
  * Swig_filename_correct()
  *
  * Corrects filename paths by removing duplicate delimiters and on non-unix
@@ -229,6 +237,13 @@ void Swig_filename_correct(String *filename) {
   /* remove all duplicate file name delimiters */
   while (Replaceall(filename, SWIG_FILE_DELIMITER SWIG_FILE_DELIMITER, SWIG_FILE_DELIMITER)) {
   }
+#if !defined(_WIN32) && !defined(MACSWIG)
+  /* Simplify ./ and ../ entries */
+  if (Strstr(filename), "./") {
+    simplify_relative_dirs(filename);
+  }
+#endif
+
   /* Network paths can start with a double slash on Windows - unremove the duplicate slash we just removed */
   if (network_path)
     Insert(filename, 0, SWIG_FILE_DELIMITER);
