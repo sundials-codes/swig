@@ -20,10 +20,11 @@ namespace {
 
 const char usage[] = "\
 Fotran Options (available with -fortran)\n\
-     -cppcast    - Enable C++ casting operators (default) \n\
-     -nocppcast  - Disable C++ casting operators\n\
-     -fext       - Change file extension of generated Fortran files to <ext>\n\
-                   (default is f90)\n\
+     -cppcast     - Enable C++ casting operators (default) \n\
+     -nocppcast   - Disable C++ casting operators\n\
+     -fext        - Change file extension of generated Fortran files to <ext>\n\
+                    (default is f90)\n\
+     -noemptywrap - Don't generate C/C++ wrapper if no function wrapping is done\n\
 \n";
 
 //! Maximum line length
@@ -606,6 +607,7 @@ private:
   // >>> CONFIGURE OPTIONS
 
   String *d_fext; //!< Fortran file extension
+  bool d_noemptywrap; //!< If true and no C 'wrapper' code is generated, don't write the c/cxx file
 
 public:
   virtual void main(int argc, char *argv[]);
@@ -664,8 +666,9 @@ void FORTRAN::main(int argc, char *argv[]) {
   /* Set language-specific subdirectory in SWIG library */
   SWIG_library_directory("fortran");
 
-  // Default string extension
+  // Default config options
   d_fext = NewString("f90");
+  d_noemptywrap = false;
 
   // Set command-line options
   for (int i = 1; i < argc; ++i) {
@@ -685,6 +688,9 @@ void FORTRAN::main(int argc, char *argv[]) {
       } else {
         Swig_arg_error();
       }
+    } else if (strcmp(argv[i], "-noemptywrap") == 0) {
+      d_noemptywrap = true;
+      Swig_mark_arg(i);
     } else if ((strcmp(argv[i], "-help") == 0)) {
       Printv(stdout, usage, NULL);
     }
@@ -800,6 +806,11 @@ int FORTRAN::top(Node *n) {
  * \brief Write C++ wrapper code
  */
 void FORTRAN::write_wrapper(String *filename) {
+  if (d_noemptywrap && Len(f_wrapper) == 0) {
+    // User asked to not write an object-code-free file
+    return;
+  }
+
   // Open file
   File *out = NewFile(filename, "w", SWIG_output_files());
   if (!out) {
