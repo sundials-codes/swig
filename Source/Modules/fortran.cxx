@@ -183,6 +183,23 @@ bool is_native_parameter(Node *n) {
 }
 
 /* -------------------------------------------------------------------------
+ * \brief Determine whether constant is literal or not (e.g. an enum value)
+ */
+bool is_literal_parameter(Node *n) {
+  String *param_type = Getattr(n, "type");
+  if (!param_type) {
+    // Default to yes
+    return true;
+  } else if (Strcmp(param_type, "q(const).int") == 0) {
+    // Not a literal
+    return false;
+  } else {
+    // Has a type, but isn't q(const).int
+    return true;
+  }
+}
+
+/* -------------------------------------------------------------------------
  * Construct a specifier suffix from a BIND(C) typemap.
  * 
  * This returns NULL if the typestr doesn't have a simple KIND, otherwise
@@ -192,30 +209,31 @@ bool is_native_parameter(Node *n) {
  */
 String *make_specifier_suffix(String *bindc_typestr) {
   String *suffix = NULL;
-    // Search for the KIND embedded in `real(C_DOUBLE)` so that we can
-    // append the fortran specifier. This is kind of a hack, but native
-    // parameters should really only be used for the kinds we define in
-    // fortypemaps.swg
-    const char *start = Char(bindc_typestr);
-    const char *stop = start + Len(bindc_typestr);
-    // Search forward for left parens
-    for (; start != stop; ++start) {
-      if (*start == '(') {
-        ++start;
-        break;
-      }
+  
+  // Search for the KIND embedded in `real(C_DOUBLE)` so that we can
+  // append the fortran specifier. This is kind of a hack, but native
+  // parameters should really only be used for the kinds we define in
+  // fortypemaps.swg
+  const char *start = Char(bindc_typestr);
+  const char *stop = start + Len(bindc_typestr);
+  // Search forward for left parens
+  for (; start != stop; ++start) {
+    if (*start == '(') {
+      ++start;
+      break;
     }
-    // Search backward for right parens
-    for (; stop != start; --stop) {
-      if (*stop == ')') {
-        break;
-      }
+  }
+  // Search backward for right parens
+  for (; stop != start; --stop) {
+    if (*stop == ')') {
+      break;
     }
+  }
 
-    if (stop != start) {
-      suffix = NewStringWithSize(start, (int)(stop - start));
-    }
-    return suffix;
+  if (stop != start) {
+    suffix = NewStringWithSize(start, (int)(stop - start));
+  }
+  return suffix;
 }
 
 /* -------------------------------------------------------------------------
@@ -2811,12 +2829,15 @@ int FORTRAN::constantWrapper(Node *n) {
     }
     Printv(f_fdecl, "\n", NULL);
   } else if (is_native_parameter(n)) {
-    String *suffix = make_specifier_suffix(bindc_typestr);
-    if (suffix) {
-      // Add specifier such as _C_DOUBLE to the value. Otherwise, for example,
-      // 1.000000001 will be truncated to 1 because fortran will think it's a float.
-      Printv(value, "_", suffix, NULL);
-      Delete(suffix);
+    String *suffix = NULL;
+    if (is_literal_parameter(n)) {
+      suffix = make_specifier_suffix(bindc_typestr);
+      if (suffix) {
+        // Add specifier such as _C_DOUBLE to the value. Otherwise, for example,
+        // 1.000000001 will be truncated to 1 because fortran will think it's a float.
+        Printv(value, "_", suffix, NULL);
+        Delete(suffix);
+      }
     }
     Printv(f_fdecl, " ", bindc_typestr, ", parameter, public :: ", fsymname, " = ", value, "\n", NULL);
   } else {
